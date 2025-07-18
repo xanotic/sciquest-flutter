@@ -22,33 +22,21 @@ class DatabaseService {
 
       print('Auth response: ${response.user?.id}');
       if (response.user != null) {
-        // Try to get existing profile, create one if it doesn't exist
-        var profile;
+        // Get existing profile
         try {
-          profile = await _supabase
-            .from('profiles')
-            .select()
-            .eq('id', response.user!.id)
-            .single();
-        } catch (e) {
-          print('Profile not found, creating new profile: $e');
-          // Create profile if it doesn't exist
-          profile = await _supabase
+          final profile = await _supabase
               .from('profiles')
-              .insert({
-                'id': response.user!.id,
-                'name': response.user!.email?.split('@')[0] ?? 'User',
-                'email': response.user!.email!,
-                'total_score': 0,
-                'quizzes_completed': 0,
-                'accuracy': 0.0,
-              })
               .select()
+              .eq('id', response.user!.id)
               .single();
+          
+          print('Profile found for user');
+          return AppUser.User.fromSupabase(response, profile);
+        } catch (e) {
+          print('Profile not found: $e');
+          // If profile doesn't exist, user needs to complete registration
+          return null;
         }
-
-        // Pass the AuthResponse directly to the factory
-        return AppUser.User.fromSupabase(response, profile);
       }
     } on AuthException catch (e) {
       print('Login error: ${e.message}');
@@ -58,6 +46,46 @@ class DatabaseService {
       return null;
     }
     return null;
+  }
+
+  // Add a method to create profile after successful auth
+  Future<AppUser.User?> createUserProfile(String name, String email) async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) {
+        print('No authenticated user found');
+        return null;
+      }
+      
+      print('Creating profile for authenticated user: ${user.id}');
+      final profile = await _supabase
+          .from('profiles')
+          .insert({
+            'id': user.id,
+            'name': name,
+            'email': email,
+            'total_score': 0,
+            'quizzes_completed': 0,
+            'accuracy': 0.0,
+          })
+          .select()
+          .single();
+      
+      // Create a mock AuthResponse for the factory
+      final authResponse = AuthResponse(
+        accessToken: _supabase.auth.currentSession?.accessToken ?? '',
+        tokenType: 'bearer',
+        user: user,
+      );
+      
+      return AppUser.User.fromSupabase(authResponse, profile);
+    } on AuthException catch (e) {
+      print('Create profile auth error: ${e.message}');
+      return null;
+    } catch (e) {
+      print('Create profile error: $e');
+      return null;
+    }
   }
 
   Future<AppUser.User?> registerUser(
@@ -71,31 +99,38 @@ class DatabaseService {
 
       print('Registration auth response: ${response.user?.id}');
       if (response.user != null) {
-        // Check if profile already exists (in case of email confirmation flow)
+        // Wait a moment for the auth user to be fully created
+        await Future.delayed(const Duration(milliseconds: 500));
+        
+        // Create profile - this should work now that the user is authenticated
         var profile;
         try {
+          print('Creating profile for user: ${response.user!.id}');
           profile = await _supabase
               .from('profiles')
+              .insert({
+                'id': response.user!.id,
+                'name': name,
+                'email': email,
+                'total_score': 0,
+                'quizzes_completed': 0,
+                'accuracy': 0.0,
+              })
               .select()
-              .eq('id', response.user!.id)
               .single();
-        } catch (e) {
-          // Profile doesn't exist, create it
+          print('Profile created successfully');
+        } catch (insertError) {
+          print('Error creating profile: $insertError');
+          // Try to get existing profile in case it was already created
           try {
             profile = await _supabase
                 .from('profiles')
-                .insert({
-                  'id': response.user!.id,
-                  'name': name,
-                  'email': email,
-                  'total_score': 0,
-                  'quizzes_completed': 0,
-                  'accuracy': 0.0,
-                })
                 .select()
+                .eq('id', response.user!.id)
                 .single();
-          } catch (insertError) {
-            print('Error creating profile: $insertError');
+            print('Found existing profile');
+          } catch (e) {
+            print('Could not create or find profile: $e');
             return null;
           }
         }

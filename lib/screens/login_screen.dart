@@ -313,6 +313,7 @@ class _LoginScreenState extends State<LoginScreen>
         }
       } else {
         print('Attempting registration...');
+        // First, create the auth user
         final user = await DatabaseService.instance.registerUser(
           _nameController.text,
           _emailController.text,
@@ -327,7 +328,7 @@ class _LoginScreenState extends State<LoginScreen>
           });
         } else {
           print('Registration failed: user is null');
-          _showError('Registration failed. Email might already exist.');
+          _showError('Registration failed. Please try again or check if email already exists.');
         }
       }
     } catch (e) {
