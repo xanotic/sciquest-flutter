@@ -295,20 +295,24 @@ class _LoginScreenState extends State<LoginScreen>
 
     try {
       if (isLogin) {
+        print('Attempting login...');
         final user = await DatabaseService.instance.loginUser(
           _emailController.text,
           _passwordController.text,
         );
 
         if (user != null) {
+          print('Login successful: ${user.name}');
           UserSession.instance.setUser(user);
           WidgetsBinding.instance.addPostFrameCallback((_) {
             Navigator.pushReplacementNamed(context, '/dashboard');
           });
         } else {
+          print('Login failed: user is null');
           _showError('Invalid email or password');
         }
       } else {
+        print('Attempting registration...');
         final user = await DatabaseService.instance.registerUser(
           _nameController.text,
           _emailController.text,
@@ -316,15 +320,18 @@ class _LoginScreenState extends State<LoginScreen>
         );
 
         if (user != null) {
+          print('Registration successful: ${user.name}');
           UserSession.instance.setUser(user);
           WidgetsBinding.instance.addPostFrameCallback((_) {
             Navigator.pushReplacementNamed(context, '/dashboard');
           });
         } else {
+          print('Registration failed: user is null');
           _showError('Registration failed. Email might already exist.');
         }
       }
     } catch (e) {
+      print('Auth error: $e');
       _showError('Connection error. Please try again.');
     }
 

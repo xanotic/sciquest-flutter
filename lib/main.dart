@@ -18,13 +18,17 @@ import 'services/audio_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Update the Supabase initialization with your remote URL and Anon Key
-  // Replace 'YOUR_REMOTE_SUPABASE_ANON_KEY' with the actual key from your Supabase dashboard.
-  await Supabase.initialize(
-    url: 'https://hcznjnvscpwbksprzuyl.supabase.co',
-    anonKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhjem5qbnZzY3B3YmtzcHJ6dXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI4MTIzODYsImV4cCI6MjA2ODM4ODM4Nn0.cKDsVWRbJUbtpxGrIVafGklaCWUP0glsdjutvBd_bv8', // <-- PASTE YOUR REMOTE SUPABASE ANON KEY HERE
-  );
+  try {
+    // Update the Supabase initialization with your remote URL and Anon Key
+    await Supabase.initialize(
+      url: 'https://hcznjnvscpwbksprzuyl.supabase.co',
+      anonKey:
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhjem5qbnZzY3B3YmtzcHJ6dXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI4MTIzODYsImV4cCI6MjA2ODM4ODM4Nn0.cKDsVWRbJUbtpxGrIVafGklaCWUP0glsdjutvBd_bv8',
+    );
+    print('Supabase initialized successfully');
+  } catch (e) {
+    print('Supabase initialization error: $e');
+  }
 
   await AudioService.instance.initialize();
   runApp(const SciquestApp());

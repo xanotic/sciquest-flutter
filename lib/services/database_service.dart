@@ -14,25 +14,48 @@ class DatabaseService {
   // User Authentication
   Future<AppUser.User?> loginUser(String email, String password) async {
     try {
+      print('Attempting to login user: $email');
       final AuthResponse response = await _supabase.auth.signInWithPassword(
         email: email,
         password: password,
       );
 
+      print('Auth response: ${response.user?.id}');
       if (response.user != null) {
-        final profile = await _supabase
+        // Try to get existing profile, create one if it doesn't exist
+        var profile;
+        try {
+          profile = await _supabase
             .from('profiles')
             .select()
             .eq('id', response.user!.id)
             .single();
+        } catch (e) {
+          print('Profile not found, creating new profile: $e');
+          // Create profile if it doesn't exist
+          profile = await _supabase
+              .from('profiles')
+              .insert({
+                'id': response.user!.id,
+                'name': response.user!.email?.split('@')[0] ?? 'User',
+                'email': response.user!.email!,
+                'total_score': 0,
+                'quizzes_completed': 0,
+                'accuracy': 0.0,
+              })
+              .select()
+              .single();
+        }
 
         // Pass the AuthResponse directly to the factory
         return AppUser.User.fromSupabase(response, profile);
       }
     } on AuthException catch (e) {
       print('Login error: ${e.message}');
+      return null;
     } catch (e) {
       print('Login unexpected error: $e');
+      return null;
     }
     return null;
   }
@@ -40,32 +63,52 @@ class DatabaseService {
   Future<AppUser.User?> registerUser(
       String name, String email, String password) async {
     try {
+      print('Attempting to register user: $email');
       final AuthResponse response = await _supabase.auth.signUp(
         email: email,
         password: password,
       );
 
+      print('Registration auth response: ${response.user?.id}');
       if (response.user != null) {
-        final profile = await _supabase
-            .from('profiles')
-            .insert({
-              'id': response.user!.id,
-              'name': name,
-              'email': email,
-              'total_score': 0,
-              'quizzes_completed': 0,
-              'accuracy': 0.0,
-            })
-            .select()
-            .single();
+        // Check if profile already exists (in case of email confirmation flow)
+        var profile;
+        try {
+          profile = await _supabase
+              .from('profiles')
+              .select()
+              .eq('id', response.user!.id)
+              .single();
+        } catch (e) {
+          // Profile doesn't exist, create it
+          try {
+            profile = await _supabase
+                .from('profiles')
+                .insert({
+                  'id': response.user!.id,
+                  'name': name,
+                  'email': email,
+                  'total_score': 0,
+                  'quizzes_completed': 0,
+                  'accuracy': 0.0,
+                })
+                .select()
+                .single();
+          } catch (insertError) {
+            print('Error creating profile: $insertError');
+            return null;
+          }
+        }
 
         // Pass the AuthResponse directly to the factory
         return AppUser.User.fromSupabase(response, profile);
       }
     } on AuthException catch (e) {
       print('Registration error: ${e.message}');
+      return null;
     } catch (e) {
       print('Registration unexpected error: $e');
+      return null;
     }
     return null;
   }
