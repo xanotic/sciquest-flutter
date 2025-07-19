@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/app_theme.dart';
+import '../widgets/animated_button.dart';
 
 class GameModeScreen extends StatelessWidget {
   const GameModeScreen({Key? key}) : super(key: key);
@@ -53,6 +54,8 @@ class GameModeScreen extends StatelessWidget {
                     crossAxisCount: 2,
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
+                    // REMOVED: shrinkWrap: true, // This was causing the overflow
+                    physics: const ClampingScrollPhysics(),
                     children: [
                       _buildGameModeCard(
                         context,
@@ -89,7 +92,7 @@ class GameModeScreen extends StatelessWidget {
                       _buildGameModeCard(
                         context,
                         'Quick Fire',
-                        '30 seconds per question',
+                        '15 seconds per question',
                         Icons.timer,
                         Colors.orange,
                         'quickfire',

@@ -11,7 +11,7 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.2
   supabase_flutter: ^2.0.0
-  # audioplayers: ^6.0.0 # REMOVED: Background music dependency
+  audioplayers: ^6.0.0 # RE-ADDED: Background music dependency
 
 dev_dependencies:
   flutter_test:
@@ -21,4 +21,4 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    # - assets/audio/ # REMOVED: Audio asset declaration
+    - assets/audio/ # ADDED: Audio asset declaration

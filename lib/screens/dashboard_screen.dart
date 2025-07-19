@@ -127,6 +127,22 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 size: 28,
                               ),
                             ),
+                            // ADDED: Mute/Unmute Button
+                            IconButton(
+                              onPressed: () {
+                                setState(() {
+                                  // Update UI based on mute state
+                                  AudioService.instance.toggleMute();
+                                });
+                              },
+                              icon: Icon(
+                                AudioService.instance.isMuted
+                                    ? Icons.volume_off
+                                    : Icons.volume_up,
+                                color: AppTheme.textPrimary,
+                                size: 28,
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 30),

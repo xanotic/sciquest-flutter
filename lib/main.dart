@@ -18,24 +18,46 @@ import 'services/audio_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  try {
-    // Update the Supabase initialization with your remote URL and Anon Key
-    await Supabase.initialize(
-      url: 'https://hcznjnvscpwbksprzuyl.supabase.co',
-      anonKey:
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhjem5qbnZzY3B3YmtzcHJ6dXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI4MTIzODYsImV4cCI6MjA2ODM4ODM4Nn0.cKDsVWRbJUbtpxGrIVafGklaCWUP0glsdjutvBd_bv8',
-    );
-    print('Supabase initialized successfully');
-  } catch (e) {
-    print('Supabase initialization error: $e');
-  }
+  await Supabase.initialize(
+    url: 'https://hcznjnvscpwbksprzuyl.supabase.co',
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhjem5qbnZzY3B3YmtzcHJ6dXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI4MTIzODYsImV4cCI6MjA2ODM4ODM4Nn0.cKDsVWRbJUbtpxGrIVafGklaCWUP0glsdjutvBd_bv8', // <-- VERIFY THIS ANON KEY EXACTLY
+  );
 
   await AudioService.instance.initialize();
   runApp(const SciquestApp());
 }
 
-class SciquestApp extends StatelessWidget {
+class SciquestApp extends StatefulWidget {
+  // CHANGED to StatefulWidget to manage lifecycle
   const SciquestApp({Key? key}) : super(key: key);
+
+  @override
+  State<SciquestApp> createState() => _SciquestAppState();
+}
+
+class _SciquestAppState extends State<SciquestApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this); // Register observer
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this); // Unregister observer
+    AudioService.instance.dispose(); // Dispose audio service when app closes
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      // AudioService.instance.pauseBackgroundMusic();
+    } else if (state == AppLifecycleState.resumed) {
+      // AudioService.instance.resumeBackgroundMusic();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -219,7 +219,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
     final user = UserSession.instance.currentUser;
     if (user != null) {
       final result = QuizResult(
-        userId: user.id, // Pass user.id as String
+        userId: user.id,
         score: score,
         totalQuestions: questions.length,
         accuracy: (score / questions.length * 100),
@@ -231,7 +231,13 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
         completedAt: DateTime.now(),
       );
 
-      await DatabaseService.instance.saveQuizResult(result);
+      // Capture the updated user object returned by saveQuizResult
+      final updatedUser = await DatabaseService.instance.saveQuizResult(result);
+
+      // If the user profile was successfully updated, refresh the UserSession
+      if (updatedUser != null) {
+        UserSession.instance.setUser(updatedUser);
+      }
     }
 
     Navigator.pushReplacementNamed(

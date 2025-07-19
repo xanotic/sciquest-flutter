@@ -1,5 +1,5 @@
 import 'package:flutter/services.dart';
-// import 'package:audioplayers/audioplayers.dart'; // REMOVED: Import audioplayers
+import 'package:audioplayers/audioplayers.dart'; // RE-ADDED: Import audioplayers
 
 class AudioService {
   static final AudioService instance = AudioService._init();
@@ -8,15 +8,22 @@ class AudioService {
   bool _isMuted = false;
   bool get isMuted => _isMuted;
 
-  // final AudioPlayer _backgroundPlayer = AudioPlayer(); // REMOVED: Dedicated player for background music
+  final AudioPlayer _backgroundPlayer =
+      AudioPlayer(); // RE-ADDED: Dedicated player for background music
 
   Future<void> initialize() async {
-    // Initialize audio system (no background music initialization needed)
+    // Initialize audio system
+    _backgroundPlayer.setReleaseMode(ReleaseMode.loop); // Loop background music
+    await _backgroundPlayer
+        .setVolume(_isMuted ? 0.0 : 0.5); // Set initial volume
+    await _backgroundPlayer.play(
+        AssetSource('audio/background_music.mp3')); // Play background music
   }
 
   void toggleMute() {
     _isMuted = !_isMuted;
-    // REMOVED: Control background music volume
+    _backgroundPlayer
+        .setVolume(_isMuted ? 0.0 : 0.5); // Control background music volume
   }
 
   Future<void> playButtonTap() async {
@@ -46,8 +53,8 @@ class AudioService {
     }
   }
 
-  // REMOVED: dispose method for background music player
-  // void dispose() {
-  //   _backgroundPlayer.dispose();
-  // }
+  // ADDED: dispose method for background music player
+  void dispose() {
+    _backgroundPlayer.dispose();
+  }
 }

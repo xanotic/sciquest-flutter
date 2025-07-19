@@ -278,6 +278,7 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
+  // This is the key method for handling both login and registration
   void _handleAuth() async {
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       _showError('Please fill in all fields');
@@ -295,25 +296,20 @@ class _LoginScreenState extends State<LoginScreen>
 
     try {
       if (isLogin) {
-        print('Attempting login...');
         final user = await DatabaseService.instance.loginUser(
           _emailController.text,
           _passwordController.text,
         );
 
         if (user != null) {
-          print('Login successful: ${user.name}');
           UserSession.instance.setUser(user);
           WidgetsBinding.instance.addPostFrameCallback((_) {
             Navigator.pushReplacementNamed(context, '/dashboard');
           });
         } else {
-          print('Login failed: user is null');
           _showError('Invalid email or password');
         }
       } else {
-        print('Attempting registration...');
-        // First, create the auth user
         final user = await DatabaseService.instance.registerUser(
           _nameController.text,
           _emailController.text,
@@ -321,18 +317,15 @@ class _LoginScreenState extends State<LoginScreen>
         );
 
         if (user != null) {
-          print('Registration successful: ${user.name}');
           UserSession.instance.setUser(user);
           WidgetsBinding.instance.addPostFrameCallback((_) {
             Navigator.pushReplacementNamed(context, '/dashboard');
           });
         } else {
-          print('Registration failed: user is null');
-          _showError('Registration failed. Please try again or check if email already exists.');
+          _showError('Registration failed. Email might already exist.');
         }
       }
     } catch (e) {
-      print('Auth error: $e');
       _showError('Connection error. Please try again.');
     }
 

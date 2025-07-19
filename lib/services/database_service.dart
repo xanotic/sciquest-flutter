@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/user.dart' as AppUser; // Alias your custom User model
+import '../models/user.dart' as AppUser;
 import '../models/question.dart';
 import '../models/quiz_result.dart';
 import '../models/leaderboard_entry.dart';
@@ -19,7 +19,6 @@ class DatabaseService {
         email: email,
         password: password,
       );
-
       print('Auth response: ${response.user?.id}');
       if (response.user != null) {
         // Get existing profile
@@ -29,7 +28,6 @@ class DatabaseService {
               .select()
               .eq('id', response.user!.id)
               .single();
-          
           print('Profile found for user');
           return AppUser.User.fromSupabase(response, profile);
         } catch (e) {
@@ -48,46 +46,6 @@ class DatabaseService {
     return null;
   }
 
-  // Add a method to create profile after successful auth
-  Future<AppUser.User?> createUserProfile(String name, String email) async {
-    try {
-      final user = _supabase.auth.currentUser;
-      if (user == null) {
-        print('No authenticated user found');
-        return null;
-      }
-      
-      print('Creating profile for authenticated user: ${user.id}');
-      final profile = await _supabase
-          .from('profiles')
-          .insert({
-            'id': user.id,
-            'name': name,
-            'email': email,
-            'total_score': 0,
-            'quizzes_completed': 0,
-            'accuracy': 0.0,
-          })
-          .select()
-          .single();
-      
-      // Create a mock AuthResponse for the factory
-      final authResponse = AuthResponse(
-        accessToken: _supabase.auth.currentSession?.accessToken ?? '',
-        tokenType: 'bearer',
-        user: user,
-      );
-      
-      return AppUser.User.fromSupabase(authResponse, profile);
-    } on AuthException catch (e) {
-      print('Create profile auth error: ${e.message}');
-      return null;
-    } catch (e) {
-      print('Create profile error: $e');
-      return null;
-    }
-  }
-
   Future<AppUser.User?> registerUser(
       String name, String email, String password) async {
     try {
@@ -96,47 +54,55 @@ class DatabaseService {
         email: email,
         password: password,
       );
-
       print('Registration auth response: ${response.user?.id}');
+
       if (response.user != null) {
-        // Wait a moment for the auth user to be fully created
-        await Future.delayed(const Duration(milliseconds: 500));
-        
-        // Create profile - this should work now that the user is authenticated
-        var profile;
-        try {
-          print('Creating profile for user: ${response.user!.id}');
-          profile = await _supabase
-              .from('profiles')
-              .insert({
-                'id': response.user!.id,
-                'name': name,
-                'email': email,
-                'total_score': 0,
-                'quizzes_completed': 0,
-                'accuracy': 0.0,
-              })
-              .select()
-              .single();
-          print('Profile created successfully');
-        } catch (insertError) {
-          print('Error creating profile: $insertError');
-          // Try to get existing profile in case it was already created
+        final String userId = response.user!.id;
+        Map<String, dynamic>? profile;
+
+        // Retry mechanism to wait for the profile to be created by the trigger
+        for (int i = 0; i < 5; i++) {
+          // Try up to 5 times
           try {
+            print(
+                'Attempting to fetch profile for user: $userId (attempt ${i + 1})');
             profile = await _supabase
                 .from('profiles')
                 .select()
-                .eq('id', response.user!.id)
+                .eq('id', userId)
                 .single();
-            print('Found existing profile');
+            print('Profile fetched successfully');
+            break; // Exit loop if profile is found
           } catch (e) {
-            print('Could not create or find profile: $e');
-            return null;
+            print('Profile fetch failed: $e. Retrying...');
+            await Future.delayed(
+                const Duration(seconds: 1)); // Wait before retrying
           }
         }
 
-        // Pass the AuthResponse directly to the factory
-        return AppUser.User.fromSupabase(response, profile);
+        if (profile != null) {
+          // Update the name in the profile if it was provided during registration
+          // The trigger sets name to email by default, so we update it here.
+          if (name.isNotEmpty && profile['name'] != name) {
+            try {
+              await _supabase
+                  .from('profiles')
+                  .update({'name': name}).eq('id', userId);
+              profile['name'] =
+                  name; // Update local profile map to reflect change
+              print('Profile name updated successfully');
+            } catch (updateError) {
+              print('Error updating profile name: $updateError');
+            }
+          }
+          return AppUser.User.fromSupabase(response, profile);
+        } else {
+          print('Failed to fetch profile after multiple attempts.');
+          // If profile is still null after retries, something went wrong.
+          // Consider signing out the user if profile creation is critical.
+          await _supabase.auth.signOut(); // Clean up partially created user
+          return null;
+        }
       }
     } on AuthException catch (e) {
       print('Registration error: ${e.message}');
@@ -164,7 +130,6 @@ class DatabaseService {
           .select()
           .eq('category', category)
           .order('id', ascending: true);
-
       return data.map((q) => Question.fromJson(q)).toList();
     } catch (e) {
       print('Get questions by category error: $e');
@@ -176,7 +141,6 @@ class DatabaseService {
       {String? gameMode}) async {
     try {
       var query = _supabase.from('questions').select();
-
       if (gameMode != null && gameMode != 'all') {
         switch (gameMode) {
           case 'science':
@@ -195,9 +159,7 @@ class DatabaseService {
             break;
         }
       }
-
       final List<Map<String, dynamic>> data = await query.limit(count * 2);
-
       final List<Question> allQuestions =
           data.map((q) => Question.fromJson(q)).toList();
       allQuestions.shuffle();
@@ -209,7 +171,7 @@ class DatabaseService {
   }
 
   // Quiz Results
-  Future<bool> saveQuizResult(QuizResult result) async {
+  Future<AppUser.User?> saveQuizResult(QuizResult result) async {
     try {
       await _supabase.from('quiz_results').insert({
         'user_id': result.userId,
@@ -223,17 +185,14 @@ class DatabaseService {
         'question_ids': result.questionIds,
         'user_answers': result.userAnswers,
       });
-
       final currentProfile = await _supabase
           .from('profiles')
           .select('total_score, quizzes_completed, accuracy')
           .eq('id', result.userId)
           .single();
-
       final int currentTotalScore = currentProfile['total_score'] ?? 0;
       final int currentQuizzesCompleted =
           currentProfile['quizzes_completed'] ?? 0;
-
       final newTotalScore = currentTotalScore + result.score;
       final newQuizzesCompleted = currentQuizzesCompleted + 1;
       // Recalculate accuracy based on total correct answers and total questions across all quizzes
@@ -245,18 +204,39 @@ class DatabaseService {
       final newAccuracy = totalQuestionsAnswered > 0
           ? (newTotalScore / totalQuestionsAnswered) * 100
           : 0.0;
-
       await _supabase.from('profiles').update({
         'total_score': newTotalScore,
         'quizzes_completed': newQuizzesCompleted,
         'accuracy': newAccuracy,
       }).eq('id', result.userId);
 
-      return true;
+      // Update leaderboard entry
+      await _supabase.from('leaderboard_entries').upsert({
+        'user_id': result.userId,
+        'total_score': newTotalScore,
+        'quizzes_completed': newQuizzesCompleted,
+        'accuracy': newAccuracy,
+        'last_updated': DateTime.now().toIso8601String(),
+      },
+          onConflict:
+              'user_id'); // Use onConflict to handle updates for existing users
+
+      // After updating the profile, fetch the latest profile data
+      final updatedProfile = await _supabase
+          .from('profiles')
+          .select()
+          .eq('id', result.userId)
+          .single();
+
+      final currentUser = _supabase.auth.currentUser;
+      if (currentUser != null) {
+        return AppUser.User.fromProfileJson(updatedProfile);
+      }
+      return null; // Should not happen if user is logged in
     } catch (e) {
       print('Save quiz result error: $e');
+      return null; // Return null on error
     }
-    return false;
   }
 
   Future<List<QuizResult>> getUserQuizHistory(String userId) async {
@@ -266,7 +246,6 @@ class DatabaseService {
           .select()
           .eq('user_id', userId)
           .order('completed_at', ascending: false);
-
       return data.map((r) => QuizResult.fromJson(r)).toList();
     } catch (e) {
       print('Get quiz history error: $e');
@@ -283,7 +262,6 @@ class DatabaseService {
           .order('total_score', ascending: false)
           .order('accuracy', ascending: false)
           .limit(limit);
-
       return data.asMap().entries.map((entry) {
         final rank = entry.key + 1;
         final profile = entry.value;
@@ -312,15 +290,16 @@ class DatabaseService {
           .eq('id', userId)
           .single();
 
-      // Corrected select for aggregation and grouping:
-      // When using aggregate functions like count() and avg(), PostgREST automatically groups
-      // by any non-aggregated columns in the select statement.
+      print('Fetching category stats for user: $userId');
       final List<Map<String, dynamic>> categoryStatsData = await _supabase
           .from('quiz_results')
-          .select(
-              'category, count(id), avg(accuracy)') // Removed the second positional argument
+          .select('category, count(id), avg(accuracy)')
           .eq('user_id', userId)
+          // Removed .group('category') as it's not a valid method here.
+          // The database implicitly groups by 'category' when it's selected alongside aggregate functions.
           .order('category', ascending: true);
+
+      print('Raw category stats data from Supabase: $categoryStatsData');
 
       final Map<String, dynamic> categoryStats = {};
       for (var row in categoryStatsData) {
@@ -329,6 +308,7 @@ class DatabaseService {
           'accuracy': (row['avg'] ?? 0.0).toDouble(),
         };
       }
+      print('Processed category stats: $categoryStats');
 
       return {
         'total_quizzes': profile['quizzes_completed'] ?? 0,

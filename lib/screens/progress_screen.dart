@@ -25,7 +25,6 @@ class _ProgressScreenState extends State<ProgressScreen> {
   void _loadProgressData() async {
     final user = UserSession.instance.currentUser;
     if (user != null) {
-      // Pass user.id (which is now a String)
       final history =
           await DatabaseService.instance.getUserQuizHistory(user.id);
       final progress = await DatabaseService.instance.getUserProgress(user.id);
@@ -35,8 +34,8 @@ class _ProgressScreenState extends State<ProgressScreen> {
         _progressData = progress;
         _isLoading = false;
       });
+      print('ProgressScreen: _progressData after setState: $_progressData');
     } else {
-      // Handle case where user is not logged in, e.g., navigate to login
       Navigator.pushReplacementNamed(context, '/login');
     }
   }
